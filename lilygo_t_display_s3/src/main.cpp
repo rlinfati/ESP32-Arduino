@@ -1,6 +1,9 @@
 #include <esp_wifi.h>
 #include <WiFiProv.h>
+#include <ESPmDNS.h>
+#include <NetBIOS.h>
 #include <HTTPClient.h>
+#include <WebServer.h>
 #include "TFT_eSPI.h"
 #include "libpax_api.h"
 #include "OneButton.h"
@@ -13,6 +16,7 @@ OneButton button(BUTTON_RST);
 unsigned long start = 0;
 unsigned long timeoutms = 60 * 1e3;
 String ippub = "0.0.0.0";
+WebServer HTTPServer(80);
 
 void process_count(void) {
   blecount = count_from_libpax.ble_count;
@@ -21,6 +25,9 @@ void process_count(void) {
 }
 
 void setup() {
+  Serial.begin(115200);
+  Serial.setDebugOutput(true);
+
   tft.init();
   tft.setTextSize(2);
   tft.setRotation(3);
@@ -75,10 +82,6 @@ void setup() {
     delay(60 * 1e3);
     esp_restart();
   }
-
-  HTTPClient http;
-  http.begin("http://ifconfig.me/ip");
-  if ( http.GET() == HTTP_CODE_OK ) ippub = http.getString();
   
   struct libpax_config_t configpax;
   libpax_default_config(&configpax);
@@ -89,11 +92,24 @@ void setup() {
   libpax_counter_init(process_count, &count_from_libpax, 60, 0); 
   libpax_counter_start();
 
+  MDNS.begin("LilygoDisplayS3");
+  NBNS.begin("LilygoDisplayS3");
+
+  HTTPClient http;
+  http.begin("http://ifconfig.me/ip");
+  if ( http.GET() == HTTP_CODE_OK ) ippub = http.getString();
+
+  HTTPServer.onNotFound([]() {
+    HTTPServer.send(200, "text/plain", "Hello LilygoDisplayS3\n");
+  });
+  HTTPServer.begin();
+
   return;
 }
 
 void loop() {
   button.tick();
+  HTTPServer.handleClient();
 
   if ( millis()-start < 1e3 ) {
     return;
