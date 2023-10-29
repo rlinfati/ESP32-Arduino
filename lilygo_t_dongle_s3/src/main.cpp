@@ -7,12 +7,14 @@
 #include "TFT_eSPI.h"
 #include "libpax_api.h"
 #include "OneButton.h"
+#include "FastLED.h"
 
 TFT_eSPI tft = TFT_eSPI();
 struct count_payload_t count_from_libpax;
 unsigned long blecount = 0;
 unsigned long wificount = 0;
 OneButton button(BUTTON_RST);
+CRGB leds;
 unsigned long start = 0;
 unsigned long timeoutms = 60 * 1e3;
 String ippub = "0.0.0.0";
@@ -29,7 +31,7 @@ void setup() {
   Serial.setDebugOutput(true);
 
   tft.init();
-  tft.setTextSize(2);
+  tft.setTextSize(1);
   tft.setRotation(3);
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_LIGHTGREY);
@@ -82,7 +84,7 @@ void setup() {
     delay(60 * 1e3);
     esp_restart();
   }
-  
+
   struct libpax_config_t configpax;
   libpax_default_config(&configpax);
   configpax.wifi_channel_map = WIFI_CHANNEL_ALL;
@@ -104,6 +106,10 @@ void setup() {
   });
   HTTPServer.begin();
 
+  FastLED.addLeds<APA102, xDATA_PIN, xCLOCK_PIN, BGR>(&leds, 1);
+  FastLED.clear(true);
+  FastLED.showColor(CRGB::Blue);
+
   return;
 }
 
@@ -115,10 +121,10 @@ void loop() {
     return;
   }
   start = millis();
-
+  
   struct tm timeinfo;
   getLocalTime(&timeinfo);
-    
+
   tft.fillScreen(TFT_DARKGREY);
   tft.setCursor(0, 0);
   tft.printf("\n");
