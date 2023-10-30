@@ -81,17 +81,17 @@ void setup() {
     wifi_config_t conf;
     conf.sta.ssid[0] = 0;
     esp_wifi_set_config((wifi_interface_t)ESP_IF_WIFI_STA, &conf);
-    delay(60 * 1e3);
+    delay(timeoutms);
     esp_restart();
   }
 
   struct libpax_config_t configpax;
   libpax_default_config(&configpax);
   configpax.wifi_channel_map = WIFI_CHANNEL_ALL;
-  configpax.wificounter = 0;
+  configpax.wificounter = 1;
   configpax.blecounter = 1;
   libpax_update_config(&configpax);
-  libpax_counter_init(process_count, &count_from_libpax, 60, 0); 
+  libpax_counter_init(process_count, &count_from_libpax, 1, 1); 
   libpax_counter_start();
 
   MDNS.begin("LilygoESPS3");
@@ -121,13 +121,19 @@ void loop() {
     return;
   }
   start = millis();
+
+  WiFiClient client;
+  if (client.connect("1.1.1.1", 80)) {
+    FastLED.showColor(CRGB::Green);
+  } else {
+    FastLED.showColor(CRGB::Red);
+  }
   
   struct tm timeinfo;
   getLocalTime(&timeinfo);
 
   tft.fillScreen(TFT_DARKGREY);
   tft.setCursor(0, 0);
-  tft.printf("\n");
   tft.printf(" %04i-%02i-%02i  ",
     1900+timeinfo.tm_year, 1+timeinfo.tm_mon, timeinfo.tm_mday);
   tft.printf(" %02i:%02i:%02i\n", 
@@ -140,6 +146,7 @@ void loop() {
   tft.printf(" IPpub: %s\n", ippub.c_str());
   tft.printf("\n");
   tft.printf(" # BLE: %i\n", blecount);
-  
+  tft.printf(" #WiFi: %i\n", wificount);
+
   return;
 }
