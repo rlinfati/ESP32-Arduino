@@ -13,9 +13,11 @@ TFT_eSPI tft = TFT_eSPI();
 struct count_payload_t count_from_libpax;
 unsigned long blecount = 0;
 unsigned long wificount = 0;
+void libpax_counter_reset();
 OneButton button(BUTTON_RST);
 CRGB leds;
-unsigned long start = 0;
+unsigned long tstart = 0;
+unsigned long treset = 0;
 unsigned long timeoutms = 60 * 1e3;
 String ippub = "0.0.0.0";
 WebServer HTTPServer(80);
@@ -31,8 +33,7 @@ void setup() {
   Serial.setDebugOutput(true);
 
   tft.init();
-  tft.setTextSize(1);
-  tft.setRotation(3);
+  tft.setTextSize(1); // 13 x 20
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_LIGHTGREY);
 
@@ -53,9 +54,10 @@ void setup() {
 
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0);
-  start = millis();
+
+  tstart = millis();
   tft.printf("WiFi");
-  while ( millis()-start < timeoutms) {
+  while ( millis()-tstart < timeoutms) {
     tft.printf(".");
     delay(1000);
     if ( WiFi.isConnected() ) break;
@@ -66,9 +68,10 @@ void setup() {
 
   tft.fillScreen(TFT_DARKGREY);
   tft.setCursor(0, 0);
-  start = millis();
+
+  tstart = millis();
   tft.printf("SNTP");
-  while ( millis()-start < timeoutms) {
+  while ( millis()-tstart < timeoutms) {
     tft.printf(".");
     struct tm timeinfo;
     if ( getLocalTime(&timeinfo) ) break;
@@ -78,10 +81,10 @@ void setup() {
     tft.fillScreen(TFT_RED);
     tft.setCursor(0, 0);
     tft.printf("Erasing Provision...");
+    delay(timeoutms);
     wifi_config_t conf;
     conf.sta.ssid[0] = 0;
     esp_wifi_set_config((wifi_interface_t)ESP_IF_WIFI_STA, &conf);
-    delay(timeoutms);
     esp_restart();
   }
 
@@ -91,7 +94,7 @@ void setup() {
   configpax.wificounter = 1;
   configpax.blecounter = 1;
   libpax_update_config(&configpax);
-  libpax_counter_init(process_count, &count_from_libpax, 1, 1); 
+  libpax_counter_init(process_count, &count_from_libpax, 1, 1);
   libpax_counter_start();
 
   MDNS.begin("LilygoESPS3");
@@ -110,6 +113,9 @@ void setup() {
   FastLED.clear(true);
   FastLED.showColor(CRGB::Blue);
 
+  tstart = millis();
+  treset = millis();
+
   return;
 }
 
@@ -117,10 +123,10 @@ void loop() {
   button.tick();
   HTTPServer.handleClient();
 
-  if ( millis()-start < 1e3 ) {
+  if ( millis()-tstart < 1e3 ) {
     return;
   }
-  start = millis();
+  tstart = millis();
 
   WiFiClient client;
   if (client.connect("1.1.1.1", 80)) {
@@ -128,25 +134,39 @@ void loop() {
   } else {
     FastLED.showColor(CRGB::Red);
   }
-  
+
   struct tm timeinfo;
   getLocalTime(&timeinfo);
 
   tft.fillScreen(TFT_DARKGREY);
   tft.setCursor(0, 0);
-  tft.printf(" %04i-%02i-%02i  ",
+
+  tft.printf("*   Lilygo   \n");
+  tft.printf("* Dongle S3  \n");
+  tft.printf("\n");
+  tft.printf("* Date/time  \n");
+  tft.printf("  %04i-%02i-%02i\n",
     1900+timeinfo.tm_year, 1+timeinfo.tm_mon, timeinfo.tm_mday);
-  tft.printf(" %02i:%02i:%02i\n", 
+  tft.printf("   %02i:%02i:%02i\n",
     timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
   tft.printf("\n");
-  tft.printf("  SSID: %s\n", WiFi.SSID().c_str());
-  tft.printf(" BSSID: %s\n", WiFi.BSSIDstr().c_str());
+  tft.printf("*    SSID    \n");
+  tft.printf("%s\n", WiFi.SSID().c_str());
+  tft.printf("%s\n", WiFi.BSSIDstr().c_str());
   tft.printf("\n");
-  tft.printf(" IPprv: %s\n", WiFi.localIP().toString().c_str());
-  tft.printf(" IPpub: %s\n", ippub.c_str());
+  tft.printf("*  IP local  \n");
+  tft.printf("%s\n", WiFi.localIP().toString().c_str());
+  tft.printf("* IP publica \n");
+  tft.printf("%s\n", ippub.c_str());
   tft.printf("\n");
-  tft.printf(" # BLE: %i\n", blecount);
-  tft.printf(" #WiFi: %i\n", wificount);
+  tft.printf("#  BLE: %i\n", blecount);
+  tft.printf("# WiFi: %i\n", wificount);
+  tft.printf("\n");
+
+  if ( millis()-treset > 10 * timeoutms ) {
+    libpax_counter_reset();
+    treset = millis();
+  }
 
   return;
 }
