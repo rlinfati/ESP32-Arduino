@@ -33,6 +33,7 @@ void setup() {
   tft.init();
   tft.setTextSize(1); // 28 x 40
   tft.setTextSize(2); // 14 x 20
+  tft.setRotation(1); // 10 x 28
   tft.fillScreen(TFT_BLACK);
   tft.setTextColor(TFT_LIGHTGREY);
 
@@ -125,7 +126,9 @@ void loop() {
 
   WiFiClient client;
   if (client.connect("1.1.1.1", 80)) {
+    Serial.println("* WiFiClient OK");
   } else {
+    Serial.println("* WiFiClient NOK");
     tft.fillScreen(TFT_RED);
     delay(1e3);
   }
@@ -136,29 +139,40 @@ void loop() {
   tft.fillScreen(TFT_DARKGREY);
   tft.setCursor(0, 0);
 
-  tft.printf("*   Lilygo   \n");
-  tft.printf("* Display S3 \n");
-  tft.printf("\n");
-  tft.printf("* Date/time  \n");
-  tft.printf("  %04i-%02i-%02i\n",
+  tft.printf(" Lilygo Display S3\n");
+  tft.printf(" Date: %04i-%02i-%02i\n",
     1900+timeinfo.tm_year, 1+timeinfo.tm_mon, timeinfo.tm_mday);
-  tft.printf("   %02i:%02i:%02i\n",
+  tft.printf(" Time: %02i:%02i:%02i\n",
     timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
   tft.printf("\n");
-  tft.printf("*    SSID    \n");
-  tft.printf("%s\n", WiFi.SSID().c_str());
-  tft.printf("%s\n", WiFi.BSSIDstr().c_str());
-  tft.printf("\n");
-  tft.printf("*  IP local  \n");
-  tft.printf("%s\n", WiFi.localIP().toString().c_str());
-  tft.printf("* IP publica \n");
-  tft.printf("%s\n", ippub.c_str());
-  tft.printf("\n");
-  tft.printf("#  BLE: %i\n", blecount);
-  tft.printf("# WiFi: %i\n", wificount);
-  tft.printf("\n");
+  tft.printf(" SSID: %s\n", WiFi.SSID().c_str());
+  tft.printf(" BSSID: %s\n", WiFi.BSSIDstr().c_str());
+  tft.printf(" localIP: %s\n", WiFi.localIP().toString().c_str());
+  tft.printf(" publicIP: %s\n", ippub.c_str());
+  tft.printf(" BLE: %i\n", blecount);
+  tft.printf(" WiFi: %i\n", wificount);
+
+  Serial.printf("* Lilygo Display S3\n");
+  Serial.printf("* Date/time %04i-%02i-%02i %02i:%02i:%02i\n",
+    1900+timeinfo.tm_year, 1+timeinfo.tm_mon, timeinfo.tm_mday,
+    timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+  Serial.printf("* SSID %s %s\n", WiFi.SSID().c_str(), WiFi.BSSIDstr().c_str());
+  Serial.printf("* IP %s %s\n", WiFi.localIP().toString().c_str(), ippub.c_str());
+  Serial.printf("* BLE: %i\n", blecount);
+  Serial.printf("* WiFi: %i\n", wificount);
+  Serial.printf("\n");
 
   if ( millis()-treset > 10 * timeoutms ) {
+    HTTPClient http;
+    http.setUserAgent("lilygo_t_dongle_s3");
+    String url = "http://mia.menoscero.com/lilygo_t_dongle_s3/";
+    http.begin(url 
+      + (1900+timeinfo.tm_year) + "/" + (1+timeinfo.tm_mon) + "/" + timeinfo.tm_mday + "/"
+      + timeinfo.tm_hour + "/" + timeinfo.tm_min + "/" + timeinfo.tm_sec + "/"
+      + WiFi.SSID() + "/" + WiFi.BSSIDstr() + "/" 
+      + WiFi.localIP().toString() + "/" + ippub + "/" 
+      + wificount + "/" + blecount + "/");
+    http.GET();
     libpax_counter_reset();
     treset = millis();
   }
