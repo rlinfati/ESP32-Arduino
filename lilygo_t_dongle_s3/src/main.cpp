@@ -45,6 +45,10 @@ void setup() {
 
   button.attachDoubleClick([]() {
     tft.fillScreen(TFT_RED);
+    tft.setCursor(0, 0);
+    tft.println("Erasing Provision...");
+    Serial.println("Erasing Provision...");
+    delay(timeoutms);
     wifi_config_t conf;
     conf.sta.ssid[0] = 0;
     esp_wifi_set_config((wifi_interface_t)ESP_IF_WIFI_STA, &conf);
@@ -81,11 +85,9 @@ void setup() {
   if ( !WiFi.isConnected() ) {
     tft.fillScreen(TFT_RED);
     tft.setCursor(0, 0);
-    tft.printf("Erasing Provision...");
+    tft.println("WiFi is Not Connected...");
+    Serial.println("WiFi is Not Connected...");
     delay(timeoutms);
-    wifi_config_t conf;
-    conf.sta.ssid[0] = 0;
-    esp_wifi_set_config((wifi_interface_t)ESP_IF_WIFI_STA, &conf);
     esp_restart();
   }
 
@@ -157,7 +159,7 @@ void loop() {
   tft.printf(" BLE: %i\n", blecount);
   tft.printf(" WiFi: %i\n", wificount);
 
-  Serial.printf("* Lilygo Display S3\n");
+  Serial.printf("* Lilygo Dongle S3\n");
   Serial.printf("* Date/time %04i-%02i-%02i %02i:%02i:%02i\n",
     1900+timeinfo.tm_year, 1+timeinfo.tm_mon, timeinfo.tm_mday,
     timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);

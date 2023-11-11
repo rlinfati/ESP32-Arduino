@@ -44,6 +44,10 @@ void setup() {
 
   button.attachDoubleClick([]() {
     tft.fillScreen(TFT_RED);
+    tft.setCursor(0, 0);
+    tft.println("Erasing Provision...");
+    Serial.println("Erasing Provision...");
+    delay(timeoutms);
     wifi_config_t conf;
     conf.sta.ssid[0] = 0;
     esp_wifi_set_config((wifi_interface_t)ESP_IF_WIFI_STA, &conf);
@@ -80,11 +84,9 @@ void setup() {
   if ( !WiFi.isConnected() ) {
     tft.fillScreen(TFT_RED);
     tft.setCursor(0, 0);
-    tft.printf("Erasing Provision...");
+    tft.println("WiFi is Not Connected...");
+    Serial.println("WiFi is Not Connected...");
     delay(timeoutms);
-    wifi_config_t conf;
-    conf.sta.ssid[0] = 0;
-    esp_wifi_set_config((wifi_interface_t)ESP_IF_WIFI_STA, &conf);
     esp_restart();
   }
 
@@ -164,8 +166,8 @@ void loop() {
 
   if ( millis()-treset > 10 * timeoutms ) {
     HTTPClient http;
-    http.setUserAgent("lilygo_t_dongle_s3");
-    String url = "http://mia.menoscero.com/lilygo_t_dongle_s3/";
+    http.setUserAgent("lilygo_t_display_s3");
+    String url = "http://mia.menoscero.com/lilygo_t_display_s3/";
     http.begin(url 
       + (1900+timeinfo.tm_year) + "/" + (1+timeinfo.tm_mon) + "/" + timeinfo.tm_mday + "/"
       + timeinfo.tm_hour + "/" + timeinfo.tm_min + "/" + timeinfo.tm_sec + "/"
