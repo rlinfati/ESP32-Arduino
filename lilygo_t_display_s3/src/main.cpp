@@ -1,24 +1,24 @@
 #include <esp_wifi.h>
 #include <WiFiProv.h>
-#include <ESPmDNS.h>
-#include <NetBIOS.h>
 #include <HTTPClient.h>
-#include <WebServer.h>
 #include "TFT_eSPI.h"
 #include "libpax_api.h"
 #include "OneButton.h"
 
 TFT_eSPI tft = TFT_eSPI();
+
 struct count_payload_t count_from_libpax;
 unsigned long blecount = 0;
 unsigned long wificount = 0;
 void libpax_counter_reset();
+
 OneButton button(BUTTON_RST);
+
 unsigned long tstart = 0;
 unsigned long treset = 0;
 unsigned long timeoutms = 60 * 1e3;
+
 String ippub = "0.0.0.0";
-WebServer HTTPServer(80);
 
 void process_count(void) {
   blecount = count_from_libpax.ble_count;
@@ -29,6 +29,7 @@ void process_count(void) {
 void setup() {
   Serial.begin(115200);
   Serial.setDebugOutput(true);
+  Serial.println("Setup...");
 
   tft.init();
   tft.setTextSize(1); // 28 x 40
@@ -38,55 +39,66 @@ void setup() {
   tft.setTextColor(TFT_LIGHTGREY);
 
   button.attachClick([]() {
+    Serial.println("Restarting...");
     tft.fillScreen(TFT_GREEN);
+    tft.setCursor(0, 0);
+    tft.println("Restarting...");
     esp_restart();
   });
 
   button.attachDoubleClick([]() {
+    Serial.println("Erasing Provision...");
     tft.fillScreen(TFT_RED);
     tft.setCursor(0, 0);
     tft.println("Erasing Provision...");
-    Serial.println("Erasing Provision...");
+
     delay(timeoutms);
+
     wifi_config_t conf;
     conf.sta.ssid[0] = 0;
     esp_wifi_set_config((wifi_interface_t)ESP_IF_WIFI_STA, &conf);
+
     esp_restart();
   });
 
   WiFiProv.beginProvision();
 
+  Serial.println("WiFi...");
   tft.fillScreen(TFT_BLACK);
   tft.setCursor(0, 0);
+  tft.printf("WiFi...");
 
   tstart = millis();
-  tft.printf("WiFi");
   while ( millis()-tstart < timeoutms) {
+    Serial.printf(".");
     tft.printf(".");
-    delay(1000);
+    delay(1e3);
     if ( WiFi.isConnected() ) break;
   }
 
-  WiFi.enableIpV6();
   configTzTime("<-04>4<-03>,M9.1.6/24,M4.1.6/24", "time.cloudflare.com", "ntp.ubiobio.cl");
 
+  Serial.println("SNTP...");
   tft.fillScreen(TFT_DARKGREY);
   tft.setCursor(0, 0);
+  tft.printf("SNTP...");
 
   tstart = millis();
-  tft.printf("SNTP");
   while ( millis()-tstart < timeoutms) {
+    Serial.printf(".");
     tft.printf(".");
     struct tm timeinfo;
     if ( getLocalTime(&timeinfo) ) break;
   }
 
   if ( !WiFi.isConnected() ) {
+    Serial.println("WiFi is Not Connected...");
     tft.fillScreen(TFT_RED);
     tft.setCursor(0, 0);
     tft.println("WiFi is Not Connected...");
-    Serial.println("WiFi is Not Connected...");
+
     delay(timeoutms);
+
     esp_restart();
   }
 
@@ -99,17 +111,9 @@ void setup() {
   libpax_counter_init(process_count, &count_from_libpax, 1, 1);
   libpax_counter_start();
 
-  MDNS.begin("LilygoESPS3");
-  NBNS.begin("LilygoESPS3");
-
   HTTPClient http;
   http.begin("http://ifconfig.me/ip");
   if ( http.GET() == HTTP_CODE_OK ) ippub = http.getString();
-
-  HTTPServer.onNotFound([]() {
-    HTTPServer.send(200, "text/plain", "Hello LilygoESPS3\n");
-  });
-  HTTPServer.begin();
 
   tstart = millis();
   treset = millis();
@@ -119,28 +123,26 @@ void setup() {
 
 void loop() {
   button.tick();
-  HTTPServer.handleClient();
 
   if ( millis()-tstart < 1e3 ) {
     return;
-  }
-  tstart = millis();
-
-  WiFiClient client;
-  if (client.connect("1.1.1.1", 80)) {
-    Serial.println("* WiFiClient OK");
-  } else {
-    Serial.println("* WiFiClient NOK");
-    tft.fillScreen(TFT_RED);
-    delay(1e3);
   }
 
   struct tm timeinfo;
   getLocalTime(&timeinfo);
 
+  Serial.printf("* Lilygo Display S3\n");
+  Serial.printf("* Date/time %04i-%02i-%02i %02i:%02i:%02i\n",
+    1900+timeinfo.tm_year, 1+timeinfo.tm_mon, timeinfo.tm_mday,
+    timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
+  Serial.printf("* SSID %s %s\n", WiFi.SSID().c_str(), WiFi.BSSIDstr().c_str());
+  Serial.printf("* IP %s %s\n", WiFi.localIP().toString().c_str(), ippub.c_str());
+  Serial.printf("* BLE: %i\n", blecount);
+  Serial.printf("* WiFi: %i\n", wificount);
+  Serial.printf("\n");
+
   tft.fillScreen(TFT_DARKGREY);
   tft.setCursor(0, 0);
-
   tft.printf(" Lilygo Display S3\n");
   tft.printf(" Date: %04i-%02i-%02i\n",
     1900+timeinfo.tm_year, 1+timeinfo.tm_mon, timeinfo.tm_mday);
@@ -154,30 +156,36 @@ void loop() {
   tft.printf(" BLE: %i\n", blecount);
   tft.printf(" WiFi: %i\n", wificount);
 
-  Serial.printf("* Lilygo Display S3\n");
-  Serial.printf("* Date/time %04i-%02i-%02i %02i:%02i:%02i\n",
-    1900+timeinfo.tm_year, 1+timeinfo.tm_mon, timeinfo.tm_mday,
-    timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
-  Serial.printf("* SSID %s %s\n", WiFi.SSID().c_str(), WiFi.BSSIDstr().c_str());
-  Serial.printf("* IP %s %s\n", WiFi.localIP().toString().c_str(), ippub.c_str());
-  Serial.printf("* BLE: %i\n", blecount);
-  Serial.printf("* WiFi: %i\n", wificount);
-  Serial.printf("\n");
+  if ( millis()-treset > 5 * timeoutms ) {
+    HTTPClient httpIP;
+    httpIP.begin("http://ifconfig.me/ip");
+    if ( httpIP.GET() == HTTP_CODE_OK ) {
+      ippub = httpIP.getString();
+      Serial.println("* WiFiClient  OK");
+    } else {
+      ippub = "0.0.0.0";
+      Serial.println("* WiFiClient NOK");
+      tft.fillScreen(TFT_RED);
+    }
 
-  if ( millis()-treset > 10 * timeoutms ) {
     HTTPClient http;
-    http.setUserAgent("lilygo_t_display_s3");
-    String url = "http://mia.menoscero.com/lilygo_t_display_s3/";
-    http.begin(url 
-      + (1900+timeinfo.tm_year) + "/" + (1+timeinfo.tm_mon) + "/" + timeinfo.tm_mday + "/"
-      + timeinfo.tm_hour + "/" + timeinfo.tm_min + "/" + timeinfo.tm_sec + "/"
-      + WiFi.SSID() + "/" + WiFi.BSSIDstr() + "/" 
-      + WiFi.localIP().toString() + "/" + ippub + "/" 
-      + wificount + "/" + blecount + "/");
-    http.GET();
+    String url = "https://script.google.com/macros/s/AKfycbxq3BQBh3QopTAkpj93Tb5ycSd96spx2wE_1zAsz8whP72kJWmy-TdeyEEU4bQgY27f/exec";
+    String postdata = String("device=lilygo_t_display_s3")
+      + "&ssid=" + WiFi.SSID()
+      + "&bssid=" + WiFi.BSSIDstr()
+      + "&ipprv=" + WiFi.localIP().toString()
+      + "&ippub=" + ippub
+      + "&wifi=" + wificount
+      + "&ble=" + blecount;
+    http.begin(url);
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+    http.POST(postdata);
+
     libpax_counter_reset();
     treset = millis();
   }
+
+  tstart = millis();
 
   return;
 }
