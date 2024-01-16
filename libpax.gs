@@ -1,17 +1,21 @@
 function logPAX(device, ssid, bssid, ipprv, ippub, wifi, ble) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet()
-  const range = ss.getRange(ss.getLastRow() + 1, 1, 1, 8)
-  const value = [ [ new Date(), device, ssid, bssid, ipprv, ippub, wifi, ble ] ]
-  range.setValues(value)
+  var ss = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(device);
+  if (ss == null) {
+    ss = SpreadsheetApp.getActiveSpreadsheet().insertSheet(device)
+  }
+  ss.appendRow( [new Date(), device, ssid, bssid, ipprv, ippub, wifi, ble] )
 }
 
 function avgPAX() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet()
-  const range = ss.getRange(ss.getLastRow()-5, 7, 6, 2)
-  const value = range.getValues();
-  const sumWifi = value.reduce((total, row) => total + row[0], 0);
-  const sumBle  = value.reduce((total, row) => total + row[1], 0);
-  return JSON.stringify({"wifi": sumWifi / 6, "blw": sumBle  / 6})
+  const nrows = 6
+  const sss = SpreadsheetApp.getActiveSpreadsheet().getSheets()
+  const jsonObjects = sss.map(ss => {
+    const value = ss.getRange(ss.getLastRow()-nrows+1, 7, nrows, 2).getValues()
+    const sumWifi = value.reduce((total, row) => total + row[0], 0)
+    const sumBle  = value.reduce((total, row) => total + row[1], 0)
+    return {[ss.getSheetName()]: {'wifi': sumWifi / nrows, 'blw': sumBle / nrows}}
+  })
+  return JSON.stringify(Object.assign({}, ...jsonObjects))
 }
 
 function doGet(e) {
